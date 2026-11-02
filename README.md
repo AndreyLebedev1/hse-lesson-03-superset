@@ -1,104 +1,37 @@
-# Занятие 3: от CSV до дашборда в Superset
+# Занятие 3: PostgreSQL и Apache Superset
 
-Здесь собран один воспроизводимый путь:
+Материал разделён на два урока по 80 минут:
 
-    Olist CSV → PostgreSQL → проверка → Superset → датасеты → дашборд
+1. CSV → PostgreSQL → проверка → DBeaver;
+2. PostgreSQL → Superset Dataset → Charts → Dashboard.
 
-На компьютере нужны только:
+На компьютере нужны Python 3.10+, Docker Desktop, DBeaver и браузер. Все
+Python-зависимости находятся внутри контейнеров.
 
-- Python 3.10 или новее;
-- запущенный Docker Desktop;
-- DBeaver для просмотра PostgreSQL;
-- браузер для Superset.
+## Подготовка
 
-Python-библиотеки устанавливать на компьютер не нужно. PostgreSQL, загрузчик и
-Superset работают в Docker. Каждый шаг можно запускать повторно. Вывод виден в
-терминале и сохраняется в папке logs.
+    git clone https://github.com/AndreyLebedev1/hse-lesson-03-superset.git
+    cd hse-lesson-03-superset
 
-## Быстрый запуск
+## Урок 1: создаём базу данных
 
-Откройте терминал в этой папке и выполните:
+Полный маршрут описан в [LESSON_01_DATABASE.md](LESSON_01_DATABASE.md).
 
-    python3 scripts/run_all.py
+Запуск всех технических шагов первого урока:
 
-Первый запуск скачивает датасет и Docker-образы, поэтому займёт больше времени.
-После завершения:
+    python3 scripts/run_lesson_01.py
 
-- DBeaver: localhost:5433, база olist;
-- Superset: http://localhost:8088.
+Сценарий:
 
-## Последовательный запуск для занятия
+1. проверяет Python и Docker;
+2. скачивает публичный датасет Olist;
+3. проверяет SHA-256 пяти CSV;
+4. запускает PostgreSQL 17;
+5. загружает исходные таблицы в схему raw;
+6. создаёт analytics.olist_items;
+7. сравнивает с CSV каждую строку и каждое значение.
 
-### 0. Проверяем среду
-
-    python3 scripts/00_check_environment.py
-
-Скрипт проверит Python и Docker и автоматически создаст локальный файл .env.
-
-### 1. Скачиваем исходные данные
-
-    python3 scripts/01_download_data.py
-
-Скрипт скачивает публичный Brazilian E-Commerce Public Dataset by Olist с
-Kaggle, извлекает пять CSV в data/raw и проверяет SHA-256 каждого файла.
-Повторный запуск не скачивает уже проверенные данные.
-
-### 2. Запускаем PostgreSQL
-
-    python3 scripts/02_start_database.py
-
-Docker скачает PostgreSQL 17, создаст контейнер и дождётся готовности базы.
-Лог шага: logs/02_start_database.log.
-
-### 3. Загружаем данные
-
-    python3 scripts/03_load_data.py
-
-Загрузчик:
-
-1. сверяет CSV с контрольными суммами;
-2. создаёт схемы raw и analytics;
-3. загружает пять исходных таблиц одной транзакцией;
-4. создаёт analytics.olist_items;
-5. проверяет число строк и общую стоимость товаров.
-
-Зерно analytics.olist_items — одна товарная позиция заказа. Это основной
-датасет для дашборда. В нём нет фильтра по датам или статусам заказов.
-
-### 4. Независимо проверяем загрузку
-
-    python3 scripts/04_check_data.py
-
-Проверка сравнивает с CSV каждую строку и каждое значение в PostgreSQL, а затем
-проверяет аналитическое представление. Успешный результат заканчивается
-сообщением status: ok.
-
-### 5. Запускаем Superset
-
-    python3 scripts/05_start_superset.py
-
-На первом запуске Superset создаёт служебную базу superset_meta и пользователя
-администратора. После шага интерфейс доступен по адресу:
-
-    http://localhost:8088
-
-Логин и пароль для локального занятия: admin / admin.
-
-### 6. Подключаем PostgreSQL к Superset
-
-    python3 scripts/06_connect_superset.py
-
-Скрипт проверяет соединение и регистрирует пять исходных таблиц и
-analytics.olist_items как датасеты Superset. В основной датасет также добавлены
-метрики «Товарные позиции», «Заказы», «Стоимость товаров» и «Средний чек».
-
-### 7. Проверяем состояние
-
-    python3 scripts/07_status.py
-
-## Подключение DBeaver
-
-Создайте соединение PostgreSQL:
+Подключение DBeaver:
 
 | Поле | Значение |
 |---|---|
@@ -108,41 +41,72 @@ analytics.olist_items как датасеты Superset. В основной да
 | Username | olist_admin |
 | Password | olist_local |
 
-После подключения откройте Schemas. В raw лежат исходные таблицы, в analytics —
-готовое представление для BI. Проверочные запросы находятся в
-sql/dbeaver_checks.sql.
+Проверочные запросы находятся в [sql/dbeaver_checks.sql](sql/dbeaver_checks.sql).
 
-## Что строить в Superset
+## Урок 2: создаём датасет и дашборд
 
-Откройте Data → Datasets → analytics.olist_items. Из него удобно собрать:
+Полный маршрут описан в [LESSON_02_SUPERSET.md](LESSON_02_SUPERSET.md).
 
-1. Big Number: метрика «Заказы»;
-2. Time-series Line Chart: месяц покупки и «Стоимость товаров»;
-3. Bar Chart: английская категория товара и «Стоимость товаров», Top 10;
-4. Pie Chart: статус заказа и «Заказы»;
-5. Native Filters: дата покупки, штат покупателя и статус заказа.
+Подготовка инфраструктуры второго урока:
 
-Подробный маршрут находится в DASHBOARD.md.
+    python3 scripts/run_lesson_02.py
+
+Затем откройте http://localhost:8088 и войдите как admin / admin.
+
+На втором уроке мы вручную:
+
+1. подключим PostgreSQL к Superset;
+2. добавим analytics.olist_items как Dataset;
+3. определим общие метрики заказов и стоимости;
+4. построим Big Number, временной ряд и Top-10 категорий;
+5. объединим графики в дашборд с фильтрами.
+
+Superset подключается к адресу db:5432, потому что работает внутри Docker-сети.
+DBeaver подключается к localhost:5433, потому что работает на компьютере.
+
+## Автоматический запуск всего стенда
+
+Для проверки или восстановления занятия можно выполнить:
+
+    python3 scripts/run_all.py
+
+Этот сценарий автоматически зарегистрирует соединение и датасеты в Superset.
+На основном маршруте второго урока он не используется: подключение и Dataset
+создаются вручную, чтобы действия были видны студентам.
+
+## Отдельные технические шаги
+
+| Шаг | Команда | Результат |
+|---:|---|---|
+| 0 | python3 scripts/00_check_environment.py | Проверка Python и Docker |
+| 1 | python3 scripts/01_download_data.py | CSV в data/raw |
+| 2 | python3 scripts/02_start_database.py | PostgreSQL на localhost:5433 |
+| 3 | python3 scripts/03_load_data.py | Таблицы raw и представление analytics |
+| 4 | python3 scripts/04_check_data.py | Полная сверка базы с CSV |
+| 5 | python3 scripts/05_start_superset.py | Superset на localhost:8088 |
+| 6 | python3 scripts/06_connect_superset.py | Автоматическая регистрация датасетов |
+| 7 | python3 scripts/07_status.py | Состояние контейнеров |
+
+Каждый шаг можно запускать повторно. Вывод одновременно показывается в
+терминале и сохраняется в папке logs.
 
 ## Остановка
 
     python3 scripts/stop.py
 
-Контейнеры остановятся, но данные PostgreSQL, пользователь, графики и дашборды
-останутся в Docker volumes.
+Контейнеры остановятся, но PostgreSQL, пользователь Superset, графики и
+дашборды сохранятся в Docker volumes.
 
-## Где искать ошибку
+## Если Docker недоступен
 
-Сначала откройте лог соответствующего шага в logs. Затем проверьте:
+Если сценарий сообщает, что Docker Engine недоступен, запустите Docker Desktop
+и дождитесь статуса Engine running:
 
-    docker compose ps
-    docker compose logs db
-    docker compose logs superset
+    open -a Docker
+    docker info
 
-Частые причины:
+Если macOS не находит приложение Docker, сначала установите Docker Desktop:
 
-- Docker Desktop не запущен;
-- порты 5433 или 8088 заняты другим приложением;
-- сеть недоступна при первом скачивании данных или образов;
-- шаги запущены не по порядку.
+    brew install --cask docker
+    open -a Docker
 
