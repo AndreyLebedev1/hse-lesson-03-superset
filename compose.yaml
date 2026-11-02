@@ -1,0 +1,84 @@
+name: hse-lesson-03
+
+x-superset: &superset
+  image: apache/superset:6.1.0-dev@sha256:be6a6d4938aeb7888bd29cd4b84fa37c6d071c36ae19fef8b929024bf6d5ab8f
+  user: root
+  environment:
+    SUPERSET_CONFIG_PATH: /app/lab/superset/superset_config.py
+    PYTHONPATH: /app/lab
+    FLASK_APP: superset
+    POSTGRES_USER: ${POSTGRES_USER:-olist_admin}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-olist_local}
+    SUPERSET_ADMIN_USERNAME: ${SUPERSET_ADMIN_USERNAME:-admin}
+    SUPERSET_ADMIN_PASSWORD: ${SUPERSET_ADMIN_PASSWORD:-admin}
+    SUPERSET_ADMIN_EMAIL: ${SUPERSET_ADMIN_EMAIL:-admin@example.local}
+    SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:-hse-lesson-03-local-secret-key}
+    OLIST_READER_PASSWORD: olist_reader_local
+  volumes:
+    - ./superset:/app/lab/superset:ro
+    - superset_home:/app/superset_home
+
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-olist}
+      POSTGRES_USER: ${POSTGRES_USER:-olist_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-olist_local}
+    ports:
+      - '127.0.0.1:${POSTGRES_PORT:-5433}:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -h 127.0.0.1 -U ${POSTGRES_USER:-olist_admin} -d ${POSTGRES_DB:-olist}']
+      interval: 3s
+      timeout: 5s
+      retries: 40
+
+  pipeline:
+    profiles: [tools]
+    build:
+      context: ./pipeline
+    environment:
+      PGHOST: db
+      PGPORT: '5432'
+      PGDATABASE: ${POSTGRES_DB:-olist}
+      PGUSER: ${POSTGRES_USER:-olist_admin}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-olist_local}
+      OLIST_READER_PASSWORD: olist_reader_local
+    volumes:
+      - ./data/raw:/app/data/raw:ro
+      - ./sql:/app/sql:ro
+      - ./pipeline:/app/pipeline:ro
+    working_dir: /app
+    depends_on:
+      db:
+        condition: service_healthy
+
+  superset-init:
+    <<: *superset
+    command: [/bin/bash, /app/lab/superset/init.sh]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: 'no'
+
+  superset:
+    <<: *superset
+    command: [gunicorn, --bind, '0.0.0.0:8088', --workers, '2', --threads, '4', --timeout, '120', 'superset.app:create_app()']
+    ports:
+      - '127.0.0.1:${SUPERSET_PORT:-8088}:8088'
+    depends_on:
+      superset-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: [CMD, python, -c, 'import urllib.request; urllib.request.urlopen("http://localhost:8088/health", timeout=5)']
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 20s
+
+volumes:
+  postgres_data:
+  superset_home:
