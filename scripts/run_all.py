@@ -13,6 +13,9 @@ STEPS = [
     '05_start_superset.py',
     '06_connect_superset.py',
     '07_status.py',
+    '08_create_charts.py',
+    '09_create_dashboard.py',
+    '10_verify_dashboard.py',
 ]
 
 for number, script in enumerate(STEPS, start=1):
@@ -20,4 +23,3 @@ for number, script in enumerate(STEPS, start=1):
     subprocess.run([sys.executable, str(SCRIPTS / script)], check=True)
 
 print('\nСтенд полностью готов.')
-
